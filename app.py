@@ -7,7 +7,7 @@ db = PyMongo(app).db
 
 @app.route("/", methods=["GET"])
 def home():
-    return "Welcome to Inventory Management System!"
+    return "Welcome to Inventory Management!"
 
 @app.route("/users", methods=["GET", "POST"])
 def users():
