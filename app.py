@@ -1,10 +1,11 @@
 from flask import Flask, request, jsonify
 from flask_pymongo import PyMongo
+from flask_cors import CORS
 
 app = Flask(__name__)
-app.config["MONGO_URI"] = "mongodb://localhost:27017/db"
+app.config["MONGO_URI"] = "mongodb+srv://user1:Gom63242@cluster0.qob3w.mongodb.net/db"
 db = PyMongo(app).db
-
+CORS(app)
 @app.route("/", methods=["GET"])
 def home():
     return "Welcome to Inventory Management!"
@@ -14,7 +15,7 @@ def users():
     if request.method == "POST":
         data = request.get_json()
         db.users.insert_one(data)
-        return "User added successfully!"
+        return {"response":"User added successfully!"}
     else:
         users_cursor = db.users.find()
         users = []
