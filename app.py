@@ -15,6 +15,10 @@ def users():
     if request.method == "POST":
         data = request.get_json()
         db.users.insert_one(data)
+        
+        if(db.users.find_one({"email":data.get("email")})):
+            return "User already exists!", 400
+        
         return {"response":"User added successfully!"}
     else:
         users_cursor = db.users.find()
