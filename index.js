@@ -14,17 +14,30 @@ app.get('/', (req, res)=>{
     }).status(200)
 })
 
-app.all('/:org_id/users/:email?', async (req, res) => {
+app.all('/users/:email?', async (req, res) => {
     // console.log(req.method)
+    const users_collection = await mongoose.connection.db.collection('users')
     if (req.method==="GET"){
-        try {
-            const users = await mongoose.connection.db.collection('users').find().toArray();
-            res.status(200).json(users);
+        if(req.params['email']){
+        try{
+            let user = await users_collection.find({"email":req.params['email']}).toArray()
+            res.status(200).json(user.length==0? {"EmailAlreadyRegistered":false}: {"EmailAlreadyRegistered":true})
+        }
+        catch(e){
+            // console.error("Error fetching user:", e);
+            res.status(500).json({ error: "Internal Server Error" });
+        }
+        }
+        else{
+            try {
+                let users =await users.find().toArray();
+                res.status(200).json(users);
+                }
+         
+         catch (e) {
+            console.error("Error fetching users:", e);
+            res.status(500).json({ error: "Internal Server Error" });
             }
-     
-     catch (e) {
-        console.error("Error fetching users:", e);
-        res.status(500).json({ error: "Internal Server Error" });
         }
     }
     else if (req.method==="POST")
@@ -41,6 +54,7 @@ app.all('/:org_id/users/:email?', async (req, res) => {
 });
 
 app.all('/:org_id/customers', async(req, res)=>{
+    const customer_collection = await mongoose.connection.db.collection('customers')
     if(req.method==="GET"){
         try {
             const customers = await mongoose.connection.db.collection('customers').find().toArray();
@@ -53,7 +67,6 @@ app.all('/:org_id/customers', async(req, res)=>{
     }
     else if(req.method==="POST") {
         try{
-            const customers = await mongoose.connection.db.collection('customers')
             const response = Array.isArray(req.body)? await customers.insertMany(req.body):await customers.insertOne(req.body)
             res.status(200).json(response)
         }
@@ -62,19 +75,29 @@ app.all('/:org_id/customers', async(req, res)=>{
         }
     }
     }) 
-    app.all('/:org_id/products/:product_category?/:product_name?/:start_date?/:end_date?', async(req, res)=>{
+    app.get("/:org_id/productId/:productid", async()=>{
+        try{
+            const product = await mongoose.connection.db.collection('products').find({
+                "product_id": req.params['product_id']
+            }).toArray()
+            res.status(200).json(product)
+        }
+        catch(e){
+            res.status(500).json({ "Err": e });
+        }
+    })
+    app.all('/:org_id/products/:product_category?/:product_id?/:start_date?/:end_date?', async(req, res)=>{
         if(req.method==="GET"){
             let product_category = req.params['product_category']
             if(product_category){
                 try{
-                    let query ={
+                    const products = await mongoose.connection.db.collection('products').find({
                         "category": product_category
-                    }
-                    const products = await mongoose.connection.db.collection('products').find(query).toArray()
+                    }).toArray()
                     res.status(200).json(products)
                 }
                 catch(e){
-
+                    res.status(500).json({ "Err": e });
                 }
             }
             else{
@@ -90,10 +113,17 @@ app.all('/:org_id/customers', async(req, res)=>{
             }
         }
         else if(req.method==="POST") {
+            let org_id = req.params["org_id"]
             try{
+                let request_body = Array.isArray(req.body)? req.body.map((key)=>({
+                    ...key,
+                    "org_id": org_id
+                })):{...req.body,"org_id": org_id}
                 const products = await mongoose.connection.db.collection('products')
                 const response = Array.isArray(req.body)? await products.insertMany(req.body):await products.insertOne(req.body)
-                res.status(200).json(response)
+                console.log(request_body)
+                res.status(200)
+                
             }
             catch(e){
                 res.status(400).json({"Error inserting user(s)":e})
@@ -122,7 +152,7 @@ app.all('/:org_id/customers', async(req, res)=>{
     }
     }) 
 
-    app.all('/:org_id/organisation', async(req, res)=>{
+    app.all('/organisation', async(req, res)=>{
         if (req.method==="GET"){
             try{
                 const organisation= await mongoose.connection.db.collection('organisation').find().toArray()
