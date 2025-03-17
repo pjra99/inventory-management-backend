@@ -14,7 +14,7 @@ app.get('/', (req, res)=>{
     }).status(200)
 })
 
-app.all('/users', async (req, res) => {
+app.all('/:org_id/users/:email?', async (req, res) => {
     // console.log(req.method)
     if (req.method==="GET"){
         try {
@@ -40,7 +40,7 @@ app.all('/users', async (req, res) => {
     }
 });
 
-app.all('/customers', async(req, res)=>{
+app.all('/:org_id/customers', async(req, res)=>{
     if(req.method==="GET"){
         try {
             const customers = await mongoose.connection.db.collection('customers').find().toArray();
@@ -54,7 +54,7 @@ app.all('/customers', async(req, res)=>{
     else if(req.method==="POST") {
         try{
             const customers = await mongoose.connection.db.collection('customers')
-            const response = req.body.length? await customers.insertMany(req.body):await customers.insertOne(req.body)
+            const response = Array.isArray(req.body)? await customers.insertMany(req.body):await customers.insertOne(req.body)
             res.status(200).json(response)
         }
         catch(e){
@@ -62,21 +62,37 @@ app.all('/customers', async(req, res)=>{
         }
     }
     }) 
-    app.all('/products', async(req, res)=>{
+    app.all('/:org_id/products/:product_category?/:product_name?/:start_date?/:end_date?', async(req, res)=>{
         if(req.method==="GET"){
-            try {
-                const products = await mongoose.connection.db.collection('products').find().toArray();
-                res.status(200).json(products);
+            let product_category = req.params['product_category']
+            if(product_category){
+                try{
+                    let query ={
+                        "category": product_category
+                    }
+                    const products = await mongoose.connection.db.collection('products').find(query).toArray()
+                    res.status(200).json(products)
                 }
-         
-         catch (e) {
-            res.status(500).json({ "Err": e });
+                catch(e){
+
+                }
+            }
+            else{
+                try {
+                    console.log(req.params['product_category'])
+                    const products = await mongoose.connection.db.collection('products').find().toArray();
+                    res.status(200).json(products);
+                    }
+             
+             catch (e) {
+                res.status(500).json({ "Err": e });
+                }
             }
         }
         else if(req.method==="POST") {
             try{
                 const products = await mongoose.connection.db.collection('products')
-                const response = req.body.length? await products.insertMany(req.body):await products.insertOne(req.body)
+                const response = Array.isArray(req.body)? await products.insertMany(req.body):await products.insertOne(req.body)
                 res.status(200).json(response)
             }
             catch(e){
@@ -84,7 +100,7 @@ app.all('/customers', async(req, res)=>{
             }
         }
         })
-    app.all('/stock_details', async(req, res)=>{
+    app.all('/:org_id/stock_details', async(req, res)=>{
     if (req.method==="GET"){
         try{
             const stock_details= await mongoose.connection.db.collection('stock_details').find().toArray()
@@ -106,7 +122,7 @@ app.all('/customers', async(req, res)=>{
     }
     }) 
 
-    app.all('/organisation', async(req, res)=>{
+    app.all('/:org_id/organisation', async(req, res)=>{
         if (req.method==="GET"){
             try{
                 const organisation= await mongoose.connection.db.collection('organisation').find().toArray()
