@@ -23,46 +23,60 @@ app.get(":org_id/orders/:order_id?", async(req, res)=>{
             res.status(400).json({"Error":e})
         }
 })
-app.post('/:org_id/orders/:customer_id', async()=>{
-    
-      try{
-        let org_id = req.params["org_id"]
-        let order_id = await mongoose.connection.db.collection("orders").getLastInsertedDocument.find().sort({_id:-1}).limit(1);
+app.post('/:org_id/orders/:customer_id', async (req, res) => {
+    try {
+        let org_id = req.params["org_id"];
+        let customer_id = req.params["customer_id"];
+
+        // Get the last inserted order ID
+        let lastOrder = await mongoose.connection.db.collection("orders").find().sort({ _id: -1 }).limit(1).toArray();
+        let order_id = lastOrder.length > 0 ? lastOrder[0].order_id + 1 : 1;
+
         let order_payload = {
-                    "org_id": org_id,
-                    "date": date.now(),
-                    "customer_id": customer_id,
-                    "order_id": order_id+1,
-                    "products": req.body
-        }    
-    
-        for (let i =0; i<req.body.length; i++){
-            let product_json = await mongoose.connection.db.collection("products").find({"product_id": req.body.product_id})
-            let lot_size_in_order = req.body[i].lot_size.product_json.min_lot_size<1? 0:req.body[i].lot_size.product_json.min_lot_size
-            let total_units_in_order = req.body[i].unit
-            let profit= (product_json.selling_price-product_json.cost_price)*total_units_in_order
-            let discount = product_json.discount*0.01 *(lot_size_in_order<1?1:lot_size_in_order )
-            let final_profit = profit - discount
-            let updateProductsCollection = await mongoose.connection.db.collection("products").updateOne(
-                { product_id: req.body["product_id"] },
-                { $inc: {["availability"]: -total_units_in_order},
+            "org_id": org_id,
+            "date": Date.now(),
+            "customer_id": customer_id,
+            "order_id": order_id,
+            "products": req.body
+        };
+
+        for (let i = 0; i < req.body.length; i++) {
+            let product_json = await mongoose.connection.db.collection("products").findOne({ "product_id": req.body[i].product_id });
+
+            if (!product_json) {
+                return res.status(400).json({ "Err": `Product with ID ${req.body[i].product_id} not found` });
+            }
+
+            let lot_size_in_order = product_json.min_lot_size < 1 ? 0 : product_json.min_lot_size;
+            let total_units_in_order = req.body[i].unit;
+            let profit = (product_json.selling_price - product_json.cost_price) * total_units_in_order;
+            let discount = product_json.discount * 0.01 * (lot_size_in_order < 1 ? 1 : lot_size_in_order);
+            let final_profit = profit - discount;
+
+            await mongoose.connection.db.collection("products").updateOne(
+                { product_id: req.body[i].product_id },
+                { $inc: { "availability": -total_units_in_order } }
+            );
+
+            await mongoose.connection.db.collection("stock_details").updateOne(
+                { product_id: req.body[i].product_id },
+                {
+                    $inc: {
+                        "lot_sold": lot_size_in_order < 1 ? 0 : total_units_in_order / lot_size_in_order,
+                        "profit_total": final_profit
                     }
-                );
-            let updateStockDetails = mongoose.connection.db.collection("stock_details").updateOne(
-                {product_id: req.body["product_id"]},
-                {$inc: {["lot_sold"]: lot_size_in_order<1?0:lot_size_in_orderunit/lot_size}},
-                {$inc: {["profitTotal"]: final_profit}}
-            )
-        } 
-        let response = mongoose.connection.db.collection("orders").insertOne(order_payload)
+                }
+            );
+        }
 
-        res.status(200).json({"msg": "Success"})
-      }
-      catch(e){
-        res.status(400).json({"Err": e})
-      }
+        await mongoose.connection.db.collection("orders").insertOne(order_payload);
 
-})
+        res.status(200).json({ "msg": "Success" });
+    } catch (e) {
+        res.status(400).json({ "Err": e.message });
+    }
+});
+
 app.all('/users/:email?', async (req, res) => {
 
     if (req.method==="GET"){
