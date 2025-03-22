@@ -5,7 +5,7 @@ console.log("Conneted to Mongodb")
 const express = require('express')
 const cors = require('cors')
 const app = express()
-
+                    
 app.use(cors())
 app.use(express.json())
 app.get('/', (req, res)=>{
@@ -14,7 +14,7 @@ app.get('/', (req, res)=>{
     }).status(200)
 })
 
-app.get(":org_id/orders/:order_id?", async(req, res)=>{
+app.get("/:org_id/orders/:order_id?", async(req, res)=>{
         try{
             let orders = await mongoose.connection.db.collection('orders').find().toArray()
             res.status(200).json(orders)
@@ -115,12 +115,13 @@ app.all('/users/:email?', async (req, res) => {
     }
 });
 
+//customer api
 app.all('/:org_id/customers', async(req, res)=>{
     const customer_collection = await mongoose.connection.db.collection('customers')
     if(req.method==="GET"){
         try {
-            const customers = await mongoose.connection.db.collection('customers').find().toArray();
-            res.status(200).json(customers);
+            const customers = await customer_collection.find().toArray();
+            res.status(200).json({customers});
             }
      
      catch (e) {
@@ -148,13 +149,16 @@ app.all('/:org_id/customers', async(req, res)=>{
             res.status(500).json({ "Err": e });
         }
     })
-    app.all('/:org_id/products/:product_category?/:product_id?/:start_date?/:end_date?', async(req, res)=>{
+    app.all('/:org_id/products/:product_category?/:start_date?/:end_date?', async(req, res)=>{
         if(req.method==="GET"){
             let product_category = req.params['product_category']
-            if(product_category){
+            let start_date = req.params["start_date"]
+            let end_date = req.params["end_date"]
+            if(product_category && start_date && end_date){
                 try{
                     const products = await mongoose.connection.db.collection('products').find({
-                        "category": product_category
+                        "category": product_category,
+                        "query": {$gte: new Date(start_date), $lte: new Date(end_date)}
                     }).toArray()
                     res.status(200).json(products)
                 }
@@ -183,7 +187,7 @@ app.all('/:org_id/customers', async(req, res)=>{
                 })):{...req.body,"org_id": org_id}
                 const products = await mongoose.connection.db.collection('products')
                 const response = Array.isArray(req.body)? await products.insertMany(req.body):await products.insertOne(req.body)
-                console.log(request_body)
+                console.log(response)
                 res.status(200)
                 
             }
@@ -192,6 +196,19 @@ app.all('/:org_id/customers', async(req, res)=>{
             }
         }
         })
+    app.get("/get_product_by_id/:product_id", async(req, res)=>{
+        try {
+            let product_id = req.params['product_id']
+            const product = await mongoose.connection.db.collection('products').find({
+                "product_id": parseInt(product_id)
+            }).toArray();
+            console.log(product)
+            res.status(200).json(product);
+            }
+     catch (e) {
+        res.status(500).json({ "Err": e.message });
+        }
+    })
     app.all('/:org_id/stock_details', async(req, res)=>{
     if (req.method==="GET"){
         try{
@@ -209,7 +226,7 @@ app.all('/:org_id/customers', async(req, res)=>{
             res.status(200).json(response)
         }
         catch(e){
-           res.status(400).json({"Err":e})
+           res.status(400).json({"Err":e.message})
         }
     }
     }) 
@@ -221,7 +238,7 @@ app.all('/:org_id/customers', async(req, res)=>{
                 res.status(200).json(organisation)
             }
             catch(e){
-                res.status(400).json({"Err": e})
+                res.status(400).json({"Err": e.message})
             }
         }
         else if (method==="POST"){
@@ -231,7 +248,7 @@ app.all('/:org_id/customers', async(req, res)=>{
                 res.status(200).json(response)
             }
             catch(e){
-               res.status(400).json({"Err":e})
+               res.status(400).json({"Err":e.message})
             }
         }
         }) 
