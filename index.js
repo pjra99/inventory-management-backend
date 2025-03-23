@@ -16,13 +16,17 @@ app.get('/', (req, res)=>{
 
 //get order by id
 app.get("/:org_id/orders/:order_id?", async(req, res)=>{
-        try{
-            let orders = await mongoose.connection.db.collection('orders').find({_id: req.params["order_id"]}).toArray()
-            res.status(200).json(orders)
-        }
-        catch(e){
-            res.status(400).json({"err":e.message})
-        }
+     filter = {}
+      if (req.params["order_id"]){
+        filter._id = req.params["order_id"]
+      } 
+      try{
+        let orders = await mongoose.connection.db.collection('orders').find(filter).toArray()
+        res.status(200).json(orders)
+    }
+    catch(e){
+        res.status(400).json({"err":e.message})
+    }
 })
 
 
