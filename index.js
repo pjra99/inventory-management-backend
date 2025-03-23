@@ -158,7 +158,15 @@ app.all('/:org_id/customers', async(req, res)=>{
         res.status(500).json({ "err": e.message });
         }
     })
-
+     app.get("/:org_id/get_product_categories", async(req, res)=>{
+        try{
+            const response = await mongoose.connection.db.collection("products").distinct("category")
+            res.status(200).json(response)
+        }
+        catch(e){
+           res.status(400).json({"err":e.message})
+        }
+     })
     //products api
     app.all('/:org_id/products/:product_category?/:start_date?/:end_date?', async(req, res)=>{
         const products_collection = await mongoose.connection.db.collection('products')
@@ -167,8 +175,9 @@ app.all('/:org_id/customers', async(req, res)=>{
             let start_date = req.params["start_date"]
             let end_date = req.params["end_date"]
             let product_category = req.params["product_category"]
-            filter = {}
-            if(product_category!=="all"){
+            let org_id = req.params["org_id"]
+            filter = {"org_id": org_id}
+            if(product_category && product_category!=="all"){
             filter.category = product_category
             }
             if(start_date && end_date){
@@ -193,7 +202,7 @@ app.all('/:org_id/customers', async(req, res)=>{
                     ...key,
                     "org_id": org_id
                 })):{...req.body,"org_id": org_id}
-                const response = await Array.isArray(req.body)? await products_collection.insertMany(req.body):await products.insertOne(req.body)
+                const response = await Array.isArray(req.body)? await products_collection.insertMany(request_body):await products.insertOne(request_body)
                 console.log(response)
                 res.status(200).json(response)
             }
@@ -253,10 +262,10 @@ app.all('/:org_id/customers', async(req, res)=>{
                 res.status(400).json({"err": e.message})
             }
         }
-        else if (method==="POST"){
+        else if (req.method==="POST"){
             try{
                 
-                const response = Array.isArray(req.body)? await organisations_collection.insertOne(req.body): await organisations_collection.insertMany(req.body)
+                const response = Array.isArray(req.body)? await organisations_collection.insertMany(req.body): await organisations_collection.insertOne(req.body)
                 res.status(200).json(response)
             }
             catch(e){
