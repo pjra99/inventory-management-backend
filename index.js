@@ -1,5 +1,6 @@
 require('dotenv').config({path: 'C:\\Users\\pranj\\b-projects\\inventory-management-backend\\.env'})
 const mongoose = require('mongoose')
+const bcrypt = require('bcrypt')
 mongoose.connect(process.env.MONGO_URI)
 console.log("Conneted to Mongodb")
 const express = require('express')
@@ -82,12 +83,16 @@ app.post('/:org_id/orders/:customer_id', async (req, res) => {
 });
 
 //users api
-app.all('/users/:email?', async (req, res) => {
-    let users_collection = await mongoose.connection.db.collection("users")
+app.all('/users/:email?/:password?', async (req, res) => {
+    const users_collection = await mongoose.connection.db.collection("users")
+    const user = await users_collection.findOne({"email":req.params['email']})
     if (req.method==="GET"){
-        if(req.params['email']){
+        if (req.params["email"] && req.params["password"] ){
+            user && await bcrypt.compare(req.params['password'], user.password)? res.status(200).json({"authenticated": true}):
+             res.status(401).json({"authenticated": false})
+        }
+        else if(req.params['email']){
         try{
-            let user = await users_collection.find({"email":req.params['email']}).toArray()
             res.status(200).json(user.length==0? {"EmailAlreadyRegistered":false}: {"EmailAlreadyRegistered":true})
         }
         catch(e){
@@ -97,25 +102,25 @@ app.all('/users/:email?', async (req, res) => {
         else{
             //if we don't have email param in url
             try {
-                let users =await mongoose.connection.db.collection('users').find().toArray();
+                let users =await users_collection.find().toArray();
                 res.status(200).json(users);
                 }
          
          catch (e) {
             console.err("err fetching users:", e);
-            res.status(500).json({ err: "Internal Server err" });
+            res.status(400).json({ err: "Internal Server err" });
             }
         }
     }
     else if (req.method==="POST")
         {
         try{
-            const users = await mongoose.connection.db.collection('users')
-            const response = req.body.length? await users.insertMany(req.body):await users.insertOne(req.body)
+            req.body.password = await bcrypt.hash(req.body.password, 10)
+            const response = await users_collection.insertOne(req.body)
             res.status(200).json(response)
         }
         catch(e){
-            res.status(400).json({"err inserting user(s)":e})
+            res.status(400).json({"err creating user":e})
         }
     }
 });
