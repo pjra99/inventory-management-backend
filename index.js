@@ -86,17 +86,26 @@ app.post('/:org_id/orders/:customer_id', async (req, res) => {
 app.all('/users/:email?/:password?', async (req, res) => {
     const users_collection = await mongoose.connection.db.collection("users")
     const user = await users_collection.findOne({"email":req.params['email']})
+    // console.log(user)
     if (req.method==="GET"){
         if (req.params["email"] && req.params["password"] ){
-            user && await bcrypt.compare(req.params['password'], user.password)? res.status(200).json({"authenticated": true}):
-             res.status(401).json({"authenticated": false})
+          try{
+            user && await bcrypt.compare(req.params['password'], user.password)? res.status(200).json({"authenticated": true,
+                "org_id": user.org_id
+            }):
+            res.status(401).json({"authenticated": false})
+          }
+          catch(e){
+            res.status(400).json({"err":e.message})
+          }
         }
         else if(req.params['email']){
         try{
-            res.status(200).json(user.length==0? {"EmailAlreadyRegistered":false}: {"EmailAlreadyRegistered":true})
+            // console.log(user? true:false)
+            res.status(200).json(user? {"emailRegistered":true}: {"emailRegistered":false})
         }
         catch(e){
-            res.status(500).json({"err": e.message});
+            res.status(400).json({"err": e.message});
         }
         }
         else{
@@ -163,6 +172,7 @@ app.all('/:org_id/customers', async(req, res)=>{
         res.status(500).json({ "err": e.message });
         }
     })
+    //get product categories
      app.get("/:org_id/get_product_categories", async(req, res)=>{
         try{
             const response = await mongoose.connection.db.collection("products").distinct("category")
@@ -173,6 +183,33 @@ app.all('/:org_id/customers', async(req, res)=>{
         }
      })
     //products api
+    app.get('/:org_id/fetch_product/:category/:product_name', async (req, res) => {
+        const products_collection = await mongoose.connection.db.collection('products')
+        try {
+            const { org_id, category, product_name } = req.params;
+    
+            let query = { 
+                org_id, 
+                name: { $regex: product_name, $options: "i" } // Case-insensitive partial match
+            };
+           console.log(product_name)
+            // If category is provided and not "all", add it to the query
+            if (category && category !== "all") {
+                query.category = category;
+            }
+    
+            const products = await products_collection.find(query).toArray();
+            console.log(products)
+            if (products.length > 2) {
+                return res.json({ msg: "more than 2 products found" });
+            }
+    
+            res.json(products[0]);
+        } catch (err) {
+            res.status(500).json({ error: err.message });
+        }
+    });
+    
     app.all('/:org_id/products/:product_category?/:start_date?/:end_date?', async(req, res)=>{
         const products_collection = await mongoose.connection.db.collection('products')
         if(req.method==="GET"){
