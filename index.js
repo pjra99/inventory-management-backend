@@ -51,16 +51,20 @@ app.post('/:org_id/orders/:customer_id', async (req, res) => {
                 return res.status(400).json({ "err": `Product with ID ${req.body[i].product_id} not found` });
             }
 
-            let lot_size_in_order = unit_type_lot? req.body[i].unit: Math.floor(product_json.min_lot_size/ req.body[i].unit)
-            let total_units_in_order = unit_type_lot?product_json.min_lot_size* req.body[i].unit: req.body[i].unit;
-            let profit = (product_json.selling_price - product_json.cost_price) * total_units_in_order;
+            let lot_size_in_order = req.body[i].count>=1? Math.floor(req.body[i].min_lot_size/ req.body[i].count):req.body[i].count
+            let total_units_in_order = req.body[i].count
+            let profit_total = (req.body[i].selling_price - req.body[i].cost_price) * total_units_in_order;
+            let final_price = req.body[i].selling_price * total_units_in_order;
             //disount would be per lot
-            let discount = product_json.discount * 0.01 * (lot_size_in_order == 0 ? 1 : lot_size_in_order);
-            let final_profit = profit - discount;
+            let discount_per_lot = req.body[i].discount_percentage * 0.01 * (lot_size_in_order == 0 ? 1 : req.body[i].min_lot_size);
+            let discount_total =   discount_per_lot*(lot_size_in_order)
+            let final_profit = profit_total - discount_total;
+            let updatedBody = {...req.body[i], "final_price": final_price, "discount_total":discount_total}
+          
 
             await mongoose.connection.db.collection("products").updateOne(
                 { product_id: req.body[i].product_id },
-                { $inc: { "availability": -total_units_in_order } }
+                { $inc: { "availability": -total_units_in_order } } 
             );
 
             await mongoose.connection.db.collection("stock_details").updateOne(
@@ -102,7 +106,7 @@ app.all('/users/:email?/:password?', async (req, res) => {
         else if(req.params['email']){
         try{
             // console.log(user? true:false)
-            res.status(200).json(user? {"emailRegistered":true}: {"emailRegistered":false})
+            res.status(200).json({"emailRegistered": !!user})
         }
         catch(e){
             res.status(400).json({"err": e.message});
@@ -135,21 +139,29 @@ app.all('/users/:email?/:password?', async (req, res) => {
 });
 
 //customer api
-app.all('/:org_id/customers', async(req, res)=>{
-    const customer_collection = await mongoose.connection.db.collection('customers')
+app.all('/:org_id/customers/:customer_id?', async(req, res)=>{
+    const customer_collection = await mongoose.connection.db.collection("customers")
     if(req.method==="GET"){
+       if(req.params['customer_id']){
+        let customer = await customer_collection.findOne({org_id: req.params["org_id"]})
+        let response = {"customerRegistered": !!customer}
+        res.status(200).json(response)
+       }
+       else{ 
         try {
-            const customers = await customer_collection.find().toArray();
-            res.status(200).json({customers});
-            }
-     
-     catch (e) {
-        res.status(500).json({ "err": e.message });
+        const customers = await customer_collection.findOne({org_id: req.params["org_id"]});
+        res.status(200).json(customers);
         }
+ 
+     catch (e) {
+    res.status(500).json({ "err": e.message });
+    }}
     }
     else if(req.method==="POST") {
+        console.log("here")
+        console.log(req.params["org_id"])
         try{
-            const response = Array.isArray(req.body)? await customers.insertMany(req.body):await customers.insertOne(req.body)
+            const response = await customer_collection.insertOne({...req.body, "org_id": req.params['org_id']})
             res.status(200).json(response)
         }
         catch(e){
@@ -182,7 +194,7 @@ app.all('/:org_id/customers', async(req, res)=>{
            res.status(400).json({"err":e.message})
         }
      })
-    //products api
+    //products by name
     app.get('/:org_id/fetch_product/:category/:product_name', async (req, res) => {
         const products_collection = await mongoose.connection.db.collection('products')
         try {
@@ -201,15 +213,15 @@ app.all('/:org_id/customers', async(req, res)=>{
             const products = await products_collection.find(query).toArray();
             console.log(products)
             if (products.length > 2) {
-                return res.json({ msg: "more than 2 products found" });
+                return res.json({ msg: "more than 1 products found" });
             }
-    
-            res.json(products[0]);
+            let response = products.length ==0?{"msg": 0}: products[0]
+            res.json(response);
         } catch (err) {
             res.status(500).json({ error: err.message });
         }
     });
-    
+    //products api
     app.all('/:org_id/products/:product_category?/:start_date?/:end_date?', async(req, res)=>{
         const products_collection = await mongoose.connection.db.collection('products')
         if(req.method==="GET"){
