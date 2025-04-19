@@ -95,7 +95,7 @@ app.all('/users/:email?/:password?', async (req, res) => {
         if (req.params["email"] && req.params["password"] ){
           try{
             user && await bcrypt.compare(req.params['password'], user.password)? res.status(200).json({"authenticated": true,
-                "org_id": user.org_id
+                "_id": user._id
             }):
             res.status(401).json({"authenticated": false})
           }
@@ -142,20 +142,18 @@ app.all('/users/:email?/:password?', async (req, res) => {
 app.all('/:org_id/customers/:customer_id?', async(req, res)=>{
     const customer_collection = await mongoose.connection.db.collection("customers")
     if(req.method==="GET"){
+    let filter = {"org_id": req.params["org_id"]}
        if(req.params['customer_id']){
-        let customer = await customer_collection.findOne({org_id: req.params["org_id"]})
-        let response = {"customerRegistered": !!customer}
-        res.status(200).json(response)
+        filter["email"]= req.params["customer_id"]
        }
-       else{ 
         try {
-        const customers = await customer_collection.findOne({org_id: req.params["org_id"]});
-        res.status(200).json(customers);
+        const customers = await customer_collection.find(filter).toArray()
+        res.status(200).json(req.params['customer_id']? customers.length>0?{"customerRegistered":true}:{"customerRegistered":false}:{customers});
         }
  
      catch (e) {
-    res.status(500).json({ "err": e.message });
-    }}
+       res.status(500).json({ "err": e.message })
+    }
     }
     else if(req.method==="POST") {
         console.log("here")
@@ -266,12 +264,14 @@ app.all('/:org_id/customers/:customer_id?', async(req, res)=>{
         }
         })
 
-    app.all('/:org_id/stock_details', async(req, res)=>{
+    app.all('/:org_id/stock_details/:product_id?', async(req, res)=>{
         const stock_collection = await mongoose.connection.db.collection('stock_details')
     if (req.method==="GET"){
+        let filter =  {"org_id": req.params["org_id"]}
         try{
+            req.params["product_id"]? filter= {...filter, "_id": req.params["product_id"]}:""
             const stock_details= await stock_collection.find(
-                {"org_id": req.params["org_id"]}
+                filter
             ).toArray()
             res.status(200).json(stock_details)
         }
