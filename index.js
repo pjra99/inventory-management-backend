@@ -1,4 +1,5 @@
-require('dotenv').config({path: 'C:\\Users\\pranj\\b-projects\\inventory-management-backend\\.env'})
+// require('dotenv').config({path: 'C:\\Users\\pranj\\b-projects\\inventory-management-backend\\.env'})
+require('dotenv').config()
 const mongoose = require('mongoose')
 const bcrypt = require('bcrypt')
 mongoose.connect(process.env.MONGO_URI)
@@ -7,7 +8,10 @@ const express = require('express')
 const cors = require('cors')
 const app = express()
                     
-app.use(cors())
+const allowedOrigins = ['https://inventory-management-backend-g780.onrender.com'];
+app.use(cors({
+    origin: allowedOrigins
+}));
 app.use(express.json())
 app.get('/', (req, res)=>{
     res.json({
