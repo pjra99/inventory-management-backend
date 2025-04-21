@@ -12,7 +12,7 @@ const allowedOrigins = ['https://your-app.onrender.com','http://localhost:3000']
 app.use(cors({
     origin: allowedOrigins
 }));
-app.use(cors())
+// app.use(cors())
 app.use(express.json())
 app.get('/', (req, res)=>{
     res.json({
