@@ -100,9 +100,10 @@ app.all('/users/:email?/:password?', async (req, res) => {
         if (req.params["email"] && req.params["password"] ){
           try{
             user && await bcrypt.compare(req.params['password'], user.password)? res.status(200).json({"authenticated": true,
-                "_id": user._id
+                "_id": user._id,
+                "org_id": user.org_id
             }):
-            res.status(401).json({"authenticated": false, "org_id": user.org_id})
+            res.status(401).json({"authenticated": false})
           }
           catch(e){
             res.status(400).json({"err":e.message})
