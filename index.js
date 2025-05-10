@@ -8,7 +8,7 @@ const express = require('express')
 const cors = require('cors')
 const app = express()
                     
-const allowedOrigins = ['https://inventory-management-backend-1-qqrk.onrender.com','http://localhost:3000', 'https://inventory-management-frontend-e8k2-pjra99s-projects.vercel.app/'];
+const allowedOrigins = ['https://inventory-management-backend-1-qqrk.onrender.com','http://localhost:3000', 'https://inventory-management-frontend-e8k2-pjra99s-projects.vercel.app'];
 app.use(cors({
     origin: allowedOrigins
 }));
