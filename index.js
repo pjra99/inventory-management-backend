@@ -8,7 +8,7 @@ const express = require('express')
 const cors = require('cors')
 const app = express()
                     
-const allowedOrigins = ['https://your-app.onrender.com','http://localhost:3000'];
+const allowedOrigins = ['http://localhost:3000', 'https://inventory-management-frontend-e8k2-pjra99s-projects.vercel.app/'];
 app.use(cors({
     origin: allowedOrigins
 }));
@@ -41,7 +41,7 @@ app.post('/:org_id/orders/:customer_id', async (req, res) => {
     try {
         let org_id = req.params["org_id"];
         let customer_id = req.params["customer_id"];
-
+        //customer_id is customer's email
         let order_payload = {
             "org_id": org_id,
             "date": Date.now(),
