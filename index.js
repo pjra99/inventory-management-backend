@@ -135,7 +135,8 @@ app.all('/users/:email?/:password?', async (req, res) => {
         {
         try{
             req.body.password = await bcrypt.hash(req.body.password, 10)
-            const response = await users_collection.insertOne(req.body)
+            const userAlreadyRegistered = await users_collection.find({"email": req.body.email})
+            const response = userAlreadyRegistered.length>0? await users_collection.insertOne(req.body): {"userAlreadyRegistered": true}
             res.status(200).json(response)
         }
         catch(e){
