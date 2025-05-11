@@ -1,4 +1,4 @@
-// require('dotenv').config({path: 'C:\\Users\\pranj\\b-projects\\inventory-management-backend\\.env'})
+require('dotenv').config({path: 'C:\\Users\\pranj\\b-projects\\inventory-management-backend\\.env'})
 
 const mongoose = require('mongoose')
 const bcrypt = require('bcrypt')
@@ -42,12 +42,9 @@ app.post('/:org_id/orders/:customer_id', async (req, res) => {
         let org_id = req.params["org_id"];
         let customer_id = req.params["customer_id"];
         //customer_id is customer's email
-        let order_payload = {
-            "org_id": org_id,
-            "date": Date.now(),
-            "customer_id": customer_id,
-            "products": req.body
-        };
+        
+        let total_profit_on_order = 0
+        let debg = {}
         // updating quantities/availalability of products after
         for (let i = 0; i < req.body.length; i++) {
             let product_json = await mongoose.connection.db.collection("products").findOne({ "product_id": req.body[i].product_id });
@@ -56,17 +53,30 @@ app.post('/:org_id/orders/:customer_id', async (req, res) => {
                 return res.status(400).json({ "err": `Product with ID ${req.body[i].product_id} not found` });
             }
 
-            let lot_size_in_order = req.body[i].count>=1? Math.floor(req.body[i].min_lot_size/ req.body[i].count):req.body[i].count
+            let lot_size_in_order = req.body[i].count>=req.body[i].min_lot_size? Math.floor(req.body[i].count/req.body[i].min_lot_size):0
             let total_units_in_order = req.body[i].count
             let profit_total = (req.body[i].selling_price - req.body[i].cost_price) * total_units_in_order;
+            //final price is total price after discounts (if applicable). Selling price is SP per unit of the product
             let final_price = req.body[i].selling_price * total_units_in_order;
             //disount would be per lot
-            let discount_per_lot = req.body[i].discount_percentage * 0.01 * (lot_size_in_order == 0 ? 1 : req.body[i].min_lot_size);
+            //below calculations such as discount_per_lot, discount_total, final_profit, etc, are per product in this order
+            let discount_per_lot = req.body[i].discount_percentage * 0.01 * lot_size_in_order;
             let discount_total =   discount_per_lot*(lot_size_in_order)
             let final_profit = profit_total - discount_total;
-            let updatedBody = {...req.body[i], "final_price": final_price, "discount_total":discount_total}
-          
+            req.body[i].final_price = final_price
+            req.body[i].discount_total = discount_total
 
+            total_profit_on_order+=final_profit
+            debg = {
+                "lot_size_in_order": lot_size_in_order,
+                "total_units_in_order":total_units_in_order,
+                "profit_total":profit_total,
+                "final_price": final_price,
+                "disc_per_lot":discount_per_lot,
+                "disc_total":discount_total,
+                "final_profit":final_profit
+        }
+            console.log(debg)
             await mongoose.connection.db.collection("products").updateOne(
                 { product_id: req.body[i].product_id },
                 { $inc: { "availability": -total_units_in_order } } 
@@ -82,7 +92,19 @@ app.post('/:org_id/orders/:customer_id', async (req, res) => {
                 }
             );
         }
-
+        debg ={...debg, "total_profit": total_profit_on_order}
+        console.log(debg)
+        const now = Date.now();
+        const date = new Date(now);
+        const formattedDate = date.toLocaleDateString();
+        console.log(formattedDate);// Output: e.g., "5/12/2025"
+        let order_payload = {
+            "org_id": org_id,
+            "date": formattedDate,
+            "customer_id": customer_id,
+            "total_profit": total_profit_on_order,     
+            "products": req.body
+        };
         await mongoose.connection.db.collection("orders").insertOne(order_payload);
 
         res.status(200).json({ "msg": "Success" });
@@ -136,7 +158,8 @@ app.all('/users/:email?/:password?', async (req, res) => {
         try{
             req.body.password = await bcrypt.hash(req.body.password, 10)
             const userAlreadyRegistered = await users_collection.find({"email": req.body.email})
-            const response = userAlreadyRegistered.length>0? await users_collection.insertOne(req.body): {"userAlreadyRegistered": true}
+            console.log(userAlreadyRegistered)
+            const response = await userAlreadyRegistered.length>0? {"userAlreadyRegistered": true}:await users_collection.insertOne(req.body)
             res.status(200).json(response)
         }
         catch(e){
@@ -334,6 +357,25 @@ app.all('/:org_id/customers/:customer_id?', async(req, res)=>{
             }
         }
         }) 
+
+app.get('/this_month_sales', async(req, res)=>{
+    try {
+        const result = await mongoose.connection.db.collection('orders').aggregate([
+          {
+            $group: {
+              _id: null,
+              totalProfit: { $sum: "$amount" }
+            }
+          }
+        ]);
+    
+        const total = result[0]?.totalProfit || 0;
+        res.json({ total });
+      } catch (error) {
+        res.status(500).json({ error: "Internal server error" });
+      }
+    });
+
 
 const port = process.env.PORT || '5000'
 app.listen(port, ()=>{
